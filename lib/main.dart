@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:movu/video_player_screen.dart';
+import 'package:movu/stream_list_screen.dart';
 
 void main() {
   runApp(const MyApp());
@@ -12,7 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Video Player Demo',
-      home: VideoPlayerScreen(),
+      home: StreamListScreen(),
     );
   }
 }

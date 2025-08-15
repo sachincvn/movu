@@ -51,7 +51,17 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
             val headers = creationParams["headers"] as? Map<String, String>
             val httpDataSourceFactory = DefaultHttpDataSource.Factory()
             if (headers != null) {
-                httpDataSourceFactory.setDefaultRequestProperties(headers)
+                val userAgent = headers["User-Agent"] ?: headers["user-agent"]
+                if (userAgent != null) {
+                    httpDataSourceFactory.setUserAgent(userAgent)
+                }
+                val requestProperties = mutableMapOf<String, String>()
+                headers.forEach { (key, value) ->
+                    if (key.lowercase() != "user-agent") {
+                        requestProperties[key] = value
+                    }
+                }
+                httpDataSourceFactory.setDefaultRequestProperties(requestProperties)
             }
 
             // 3b. Configure DRM
@@ -64,11 +74,20 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
                 }
                 if (drmUuid != null) {
                     val drmConfigBuilder = MediaItem.DrmConfiguration.Builder(drmUuid)
-                    val licenseKeys = creationParams["drm_license_keys"] as? List<String>
-                    if (licenseKeys != null && licenseKeys.isNotEmpty()) {
-                        val keyResponse = createClearKeyKeyResponse(licenseKeys)
-                        drmConfigBuilder.setLicenseRequestHeaders(mapOf("X-AxDRM-Message" to String(keyResponse)))
+
+                    if (drmScheme == "clearkey") {
+                        val licenseKeys = creationParams["drm_license_keys"] as? List<String>
+                        if (licenseKeys != null && licenseKeys.isNotEmpty()) {
+                            val keyResponse = createClearKeyKeyResponse(licenseKeys)
+                            drmConfigBuilder.setLicenseRequestHeaders(mapOf("X-AxDRM-Message" to String(keyResponse)))
+                        }
+                    } else if (drmScheme == "widevine") {
+                        val licenseUrl = creationParams["drm_license_url"] as? String
+                        if (licenseUrl != null) {
+                            drmConfigBuilder.setLicenseUri(licenseUrl)
+                        }
                     }
+
                     mediaItemBuilder.setDrmConfiguration(drmConfigBuilder.build())
                 }
             }
