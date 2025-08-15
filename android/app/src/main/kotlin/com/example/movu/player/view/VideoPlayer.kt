@@ -34,6 +34,9 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
             .build()
         playerView.player = exoPlayer
         playerView.useController = false // Disable default controls
+        // Configure player view for DRM content
+        playerView.setUseController(false)
+        playerView.setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
         methodChannel = MethodChannel(messenger, "movu/video_player_" + id)
         methodChannel.setMethodCallHandler(this)
 

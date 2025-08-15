@@ -19,12 +19,30 @@ class DrmManager {
             if (drmUuid != null) {
                 val mediaItemDrmConfiguration = MediaItem.DrmConfiguration.Builder(drmUuid)
 
-                if (drmLicenseUrl != null) {
-                    mediaItemDrmConfiguration.setLicenseUri(drmLicenseUrl)
-                } else if (drmScheme == "clearkey" && licenseKeys != null) {
-                    val licenseUri = createClearKeyLicenseUri(licenseKeys)
-                    mediaItemDrmConfiguration.setLicenseUri(licenseUri)
+                when (drmScheme) {
+                    "widevine" -> {
+                        if (drmLicenseUrl != null) {
+                            mediaItemDrmConfiguration.setLicenseUri(drmLicenseUrl)
+                            // Add required headers for Widevine license requests
+                            val requestHeaders = mapOf(
+                                "Content-Type" to "application/octet-stream",
+                                "User-Agent" to "ExoPlayer/1.3.1"
+                            )
+                            mediaItemDrmConfiguration.setLicenseRequestHeaders(requestHeaders)
+                        }
+                    }
+                    "clearkey" -> {
+                        if (drmLicenseUrl != null) {
+                            mediaItemDrmConfiguration.setLicenseUri(drmLicenseUrl)
+                        } else if (licenseKeys != null) {
+                            val licenseUri = createClearKeyLicenseUri(licenseKeys)
+                            mediaItemDrmConfiguration.setLicenseUri(licenseUri)
+                        }
+                    }
                 }
+
+                // Enable multi-session for better DRM handling
+                mediaItemDrmConfiguration.setMultiSession(true)
 
                 mediaItemBuilder.setDrmConfiguration(mediaItemDrmConfiguration.build())
             }
@@ -36,8 +54,9 @@ class DrmManager {
         for (key in licenseKeys) {
             val keyParts = key.split(":")
             if (keyParts.size == 2) {
-                val keyId = Util.getUtf8Bytes(keyParts[0])
-                val keyValue = Util.getUtf8Bytes(keyParts[1])
+                // Convert hex strings to byte arrays for ClearKey
+                val keyId = hexStringToByteArray(keyParts[0])
+                val keyValue = hexStringToByteArray(keyParts[1])
                 keysList.add(keyId)
                 keysList.add(keyValue)
             }
@@ -59,5 +78,16 @@ class DrmManager {
         val jsonData = jsonObject.toString()
         val base64Data = Base64.encodeToString(Util.getUtf8Bytes(jsonData), Base64.NO_WRAP)
         return "data:application/json;base64,$base64Data"
+    }
+
+    private fun hexStringToByteArray(s: String): ByteArray {
+        val len = s.length
+        val data = ByteArray(len / 2)
+        var i = 0
+        while (i < len) {
+            data[i / 2] = ((Character.digit(s[i], 16) shl 4) + Character.digit(s[i + 1], 16)).toByte()
+            i += 2
+        }
+        return data
     }
 }

@@ -11,7 +11,19 @@ import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 
 @OptIn(UnstableApi::class)
 class TrackSelectorManager(context: Context) {
-    val trackSelector = DefaultTrackSelector(context)
+    val trackSelector = DefaultTrackSelector(context).apply {
+        // Configure track selector for better DRM content handling
+        parameters = parameters.buildUpon()
+            .setForceHighestSupportedBitrate(false)
+            .setForceLowestBitrate(false)
+            .setAllowVideoMixedMimeTypeAdaptiveness(true)
+            .setAllowAudioMixedMimeTypeAdaptiveness(true)
+            .setAllowVideoNonSeamlessAdaptiveness(true)
+            .setAllowAudioNonSeamlessAdaptiveness(true)
+            .setExceedVideoConstraintsIfNecessary(true)
+            .setExceedAudioConstraintsIfNecessary(true)
+            .build()
+    }
     
     /**
      * Get available video tracks from the current player
@@ -26,11 +38,12 @@ class TrackSelectorManager(context: Context) {
                     val format = trackGroup.getTrackFormat(i)
                     videoTracks.add(mapOf(
                         "index" to i,
-                        "width" to format.width,
-                        "height" to format.height,
-                        "bitrate" to format.bitrate,
-                        "frameRate" to format.frameRate,
-                        "codecs" to (format.codecs ?: "unknown")
+                        "width" to (format.width.takeIf { it != -1 } ?: 0),
+                        "height" to (format.height.takeIf { it != -1 } ?: 0),
+                        "bitrate" to (format.bitrate.takeIf { it != -1 } ?: 0),
+                        "frameRate" to (format.frameRate.takeIf { it != -1.0f } ?: 0.0f),
+                        "codecs" to (format.codecs ?: "unknown"),
+                        "mimeType" to (format.sampleMimeType ?: "unknown")
                     ))
                 }
             }
@@ -85,9 +98,10 @@ class TrackSelectorManager(context: Context) {
                     audioTracks.add(mapOf(
                         "index" to i,
                         "language" to (format.language ?: "unknown"),
-                        "bitrate" to format.bitrate,
-                        "sampleRate" to format.sampleRate,
-                        "channelCount" to format.channelCount
+                        "bitrate" to (format.bitrate.takeIf { it != -1 } ?: 0),
+                        "sampleRate" to (format.sampleRate.takeIf { it != -1 } ?: 0),
+                        "channelCount" to (format.channelCount.takeIf { it != -1 } ?: 0),
+                        "mimeType" to (format.sampleMimeType ?: "unknown")
                     ))
                 }
             }
