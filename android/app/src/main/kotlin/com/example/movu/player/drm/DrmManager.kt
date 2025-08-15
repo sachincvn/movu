@@ -3,49 +3,41 @@ package com.example.movu.player.drm
 import android.util.Base64
 import androidx.media3.common.C
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MediaItem.DrmConfiguration
 import androidx.media3.common.util.Util
 import org.json.JSONArray
 import org.json.JSONObject
 
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.drm.DefaultDrmSessionManager
+import androidx.media3.exoplayer.drm.DrmSessionManager
+import androidx.media3.exoplayer.drm.FrameworkMediaDrm
+import androidx.media3.exoplayer.drm.HttpMediaDrmCallback
+import android.content.Context
+
 class DrmManager {
-    fun configureDrm(mediaItemBuilder: MediaItem.Builder, drmScheme: String?, drmLicenseUrl: String?, licenseKeys: List<String>?) {
-        if (drmScheme != null) {
-            val drmUuid = when (drmScheme) {
-                "widevine" -> C.WIDEVINE_UUID
-                "clearkey" -> C.CLEARKEY_UUID
-                else -> null
-            }
+    fun buildDrmSessionManager(
+        context: Context,
+        drmScheme: String?,
+        drmLicenseUrl: String?,
+        httpDataSourceFactory: HttpDataSource.Factory
+    ): DrmSessionManager? {
+        if (drmScheme == null || drmLicenseUrl == null) {
+            return null
+        }
 
-            if (drmUuid != null) {
-                val mediaItemDrmConfiguration = MediaItem.DrmConfiguration.Builder(drmUuid)
+        val drmUuid = when (drmScheme) {
+            "widevine" -> C.WIDEVINE_UUID
+            else -> null
+        }
 
-                when (drmScheme) {
-                    "widevine" -> {
-                        if (drmLicenseUrl != null) {
-                            mediaItemDrmConfiguration.setLicenseUri(drmLicenseUrl)
-                            // Add required headers for Widevine license requests
-                            val requestHeaders = mapOf(
-                                "Content-Type" to "application/octet-stream",
-                                "User-Agent" to "ExoPlayer/1.3.1"
-                            )
-                            mediaItemDrmConfiguration.setLicenseRequestHeaders(requestHeaders)
-                        }
-                    }
-                    "clearkey" -> {
-                        if (drmLicenseUrl != null) {
-                            mediaItemDrmConfiguration.setLicenseUri(drmLicenseUrl)
-                        } else if (licenseKeys != null) {
-                            val licenseUri = createClearKeyLicenseUri(licenseKeys)
-                            mediaItemDrmConfiguration.setLicenseUri(licenseUri)
-                        }
-                    }
-                }
-
-                // Enable multi-session for better DRM handling
-                mediaItemDrmConfiguration.setMultiSession(true)
-
-                mediaItemBuilder.setDrmConfiguration(mediaItemDrmConfiguration.build())
-            }
+        return if (drmUuid != null) {
+            val mediaDrmCallback = HttpMediaDrmCallback(drmLicenseUrl, httpDataSourceFactory)
+            DefaultDrmSessionManager.Builder()
+                .setUuidAndExoMediaDrmProvider(drmUuid, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                .build(mediaDrmCallback)
+        } else {
+            null
         }
     }
 

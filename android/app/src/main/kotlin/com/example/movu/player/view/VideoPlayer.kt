@@ -90,17 +90,19 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
                 val drmLicenseUrl = args["drmLicenseUrl"] as? String
                 val licenseKeys = args["licenseKeys"] as? List<String>
 
-                val mediaItemBuilder = MediaItem.Builder().setUri(url)
-                drmManager.configureDrm(mediaItemBuilder, drmScheme, drmLicenseUrl, licenseKeys)
-                val mediaItem = mediaItemBuilder.build()
-
                 val httpDataSourceFactory = DefaultHttpDataSource.Factory()
                 if (headers != null) {
                     httpDataSourceFactory.setDefaultRequestProperties(headers)
                 }
 
+                val drmSessionManager = drmManager.buildDrmSessionManager(context, drmScheme, drmLicenseUrl, httpDataSourceFactory)
+
+                val mediaItem = MediaItem.Builder()
+                    .setUri(url)
+                    .build()
+
                 val mediaSourceFactory = MediaSourceFactoryProvider.getFactory(url)
-                val mediaSource = mediaSourceFactory.createMediaSource(context, mediaItem, httpDataSourceFactory)
+                val mediaSource = mediaSourceFactory.createMediaSource(context, mediaItem, httpDataSourceFactory, drmSessionManager)
 
                 exoPlayer.setMediaSource(mediaSource)
                 exoPlayer.prepare()
