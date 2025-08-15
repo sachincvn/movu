@@ -7,14 +7,13 @@ import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
-import androidx.media3.common.TrackSelectionOverrides
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.ui.PlayerView
 import com.example.movu.player.datasource.MediaSourceFactoryProvider
 import com.example.movu.player.drm.DrmManager
+import com.example.movu.player.track.TrackSelectorManager
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -23,7 +22,7 @@ import io.flutter.plugin.platform.PlatformView
 @OptIn(UnstableApi::class)
 class VideoPlayer(private val context: Context, id: Int, creationParams: Map<String?, Any?>?, messenger: BinaryMessenger) : PlatformView, MethodChannel.MethodCallHandler {
     private val playerView: PlayerView = PlayerView(context)
-    private val trackSelector = DefaultTrackSelector(context)
+    private val trackSelectorManager = TrackSelectorManager(context)
     private val exoPlayer: ExoPlayer
     private val methodChannel: MethodChannel
     private val handler = Handler(Looper.getMainLooper())
@@ -31,7 +30,7 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
 
     init {
         exoPlayer = ExoPlayer.Builder(context)
-            .setTrackSelector(trackSelector)
+            .setTrackSelector(trackSelectorManager.trackSelector)
             .build()
         playerView.player = exoPlayer
         playerView.useController = false // Disable default controls
@@ -56,19 +55,7 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
             }
 
             override fun onTracksChanged(tracks: androidx.media3.common.Tracks) {
-                val videoTracks = mutableListOf<Map<String, Any>>()
-                for (trackGroup in tracks.groups) {
-                    if (trackGroup.type == androidx.media3.common.C.TRACK_TYPE_VIDEO) {
-                        for (i in 0 until trackGroup.length) {
-                            val format = trackGroup.getTrackFormat(i)
-                            videoTracks.add(mapOf(
-                                "width" to format.width,
-                                "height" to format.height,
-                                "bitrate" to format.bitrate
-                            ))
-                        }
-                    }
-                }
+                val videoTracks = trackSelectorManager.getVideoTracks(exoPlayer)
                 methodChannel.invokeMethod("onTracks", videoTracks)
             }
         })
@@ -147,15 +134,27 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
             "setTrack" -> {
                 val trackIndex = call.argument<Int>("trackIndex")
                 if (trackIndex != null) {
-                    val videoTrackGroup = exoPlayer.currentTracks.groups.firstOrNull { it.type == androidx.media3.common.C.TRACK_TYPE_VIDEO }
-                    if (videoTrackGroup != null) {
-                        val trackOverride = TrackSelectionOverrides.TrackSelectionOverride(videoTrackGroup.mediaTrackGroup, listOf(trackIndex))
-                        trackSelector.parameters = trackSelector.parameters
-                            .buildUpon()
-                            .setTrackSelectionOverrides(TrackSelectionOverrides.Builder().setOverrideForType(trackOverride).build())
-                            .build()
-                    }
+                    val success = trackSelectorManager.setVideoTrack(exoPlayer, trackIndex)
+                    result.success(success)
+                } else {
+                    result.success(false)
                 }
+            }
+            "setAudioTrack" -> {
+                val trackIndex = call.argument<Int>("trackIndex")
+                if (trackIndex != null) {
+                    val success = trackSelectorManager.setAudioTrack(exoPlayer, trackIndex)
+                    result.success(success)
+                } else {
+                    result.success(false)
+                }
+            }
+            "getAudioTracks" -> {
+                val audioTracks = trackSelectorManager.getAudioTracks(exoPlayer)
+                result.success(audioTracks)
+            }
+            "clearTrackOverrides" -> {
+                trackSelectorManager.clearTrackOverrides()
                 result.success(null)
             }
             else -> result.notImplemented()
