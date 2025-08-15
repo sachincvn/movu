@@ -4,7 +4,7 @@ import 'video_player_controller.dart';
 
 class NativeVideoPlayerController extends VideoPlayerController {
   late final MethodChannel _channel;
-  final String _viewType = 'video_player';
+  final String _viewType = 'movu/video_player';
 
   Duration _duration = Duration.zero;
   Duration _position = Duration.zero;
@@ -20,8 +20,9 @@ class NativeVideoPlayerController extends VideoPlayerController {
   }
 
   void onPlatformViewCreated(int id) {
-    _channel = MethodChannel('video_player_$id');
+    _channel = MethodChannel('movu/video_player_$id');
     _channel.setMethodCallHandler(_onMethodCall);
+    _channel.invokeMethod('initialize', _config.toMap());
   }
 
   Future<void> _onMethodCall(MethodCall call) async {
@@ -32,22 +33,24 @@ class NativeVideoPlayerController extends VideoPlayerController {
       case 'onPosition':
         _position = Duration(milliseconds: call.arguments as int);
         break;
-      case 'onIsPlaying':
+      case 'onIsPlayingChanged':
         _isPlaying = call.arguments as bool;
         break;
-      case 'onBuffering':
+      case 'onIsBufferingChanged':
         _isBuffering = call.arguments as bool;
         break;
-      case 'onError':
-        _errorMessage = call.arguments as String?;
+      case 'onPlayerError':
+        final error = call.arguments as Map<dynamic, dynamic>;
+        _errorMessage = error['errorMessage'] as String?;
         break;
       case 'onTracks':
         _videoTracks = (call.arguments as List)
-            .map((track) => Map<String, dynamic>.from(track))
+            .map((track) => Map<String, dynamic>.from(track as Map))
             .toList();
         break;
       default:
-        throw MissingPluginException();
+        // Handle unknown method
+        return;
     }
     notifyListeners();
   }
@@ -64,11 +67,11 @@ class NativeVideoPlayerController extends VideoPlayerController {
 
   @override
   Future<void> setSpeed(double speed) =>
-      _channel.invokeMethod('setSpeed', {'speed': speed});
+      _channel.invokeMethod('setPlaybackSpeed', {'speed': speed});
 
   @override
-  Future<void> setTrack(int bitrate) =>
-      _channel.invokeMethod('setTrack', {'bitrate': bitrate});
+  Future<void> setTrack(int trackIndex) =>
+      _channel.invokeMethod('setTrack', {'trackIndex': trackIndex});
 
   @override
   Duration get duration => _duration;

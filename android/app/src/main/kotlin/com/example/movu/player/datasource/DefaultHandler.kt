@@ -1,0 +1,18 @@
+package com.example.movu.player.datasource
+
+import android.content.Context
+import androidx.media3.common.MediaItem
+import androidx.media3.datasource.HttpDataSource
+import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.source.ProgressiveMediaSource
+
+class DefaultHandler : MediaSourceHandler {
+    override fun createMediaSource(
+        context: Context,
+        mediaItem: MediaItem,
+        httpDataSourceFactory: HttpDataSource.Factory
+    ): MediaSource {
+        return ProgressiveMediaSource.Factory(httpDataSourceFactory)
+            .createMediaSource(mediaItem)
+    }
+}

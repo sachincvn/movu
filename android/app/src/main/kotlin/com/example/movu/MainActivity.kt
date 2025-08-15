@@ -1,5 +1,6 @@
 package com.example.movu
 
+import com.example.movu.player.view.VideoPlayerFactory
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 
@@ -9,9 +10,6 @@ class MainActivity: FlutterActivity() {
         flutterEngine
             .platformViewsController
             .registry
-            .registerViewFactory(
-                "video_player",
-                VideoPlayerFactory(flutterEngine.dartExecutor)
-            )
+            .registerViewFactory("movu/video_player", VideoPlayerFactory(flutterEngine.dartExecutor.binaryMessenger))
     }
 }

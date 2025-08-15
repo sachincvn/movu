@@ -47,7 +47,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
       alignment: Alignment.center,
       children: [
         AndroidView(
-          viewType: nativeController.viewType,
+          viewType: 'movu/video_player',
           layoutDirection: TextDirection.ltr,
           creationParams: nativeController.config.toMap(),
           creationParamsCodec: const StandardMessageCodec(),
@@ -109,11 +109,13 @@ class _VideoPlayerState extends State<VideoPlayer> {
               ),
               Expanded(
                 child: PopupMenuButton<int>(
-                  onSelected: (int bitrate) => widget.controller.setTrack(bitrate),
+                  onSelected: (int index) => widget.controller.setTrack(index),
                   itemBuilder: (BuildContext context) {
-                    return widget.controller.videoTracks.map((track) {
+                    return widget.controller.videoTracks.asMap().entries.map((entry) {
+                      final index = entry.key;
+                      final track = entry.value;
                       return PopupMenuItem<int>(
-                        value: track['bitrate'] as int,
+                        value: index,
                         child: Text('${track['height']}p'),
                       );
                     }).toList();
