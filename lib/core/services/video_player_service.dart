@@ -27,23 +27,13 @@ class VideoPlayerService {
     DrmConfig? drmConfig;
     if (stream.drmScheme != null) {
       if (stream.drmScheme == 'clearkey' && stream.drmLicense != null) {
-        drmConfig = DrmConfig(
-          scheme: 'clearkey',
-          licenseKeys: [stream.drmLicense!],
-        );
+        drmConfig = DrmConfig(scheme: 'clearkey', licenseKeys: [stream.drmLicense!]);
       } else if (stream.drmScheme == 'widevine' && stream.drmLicense != null) {
-        drmConfig = DrmConfig(
-          scheme: 'widevine',
-          licenseUrl: stream.drmLicense!,
-        );
+        drmConfig = DrmConfig(scheme: 'widevine', licenseUrl: stream.drmLicense!);
       }
     }
 
-    final config = VideoPlayerConfig(
-      url: stream.link,
-      headers: headers.isNotEmpty ? headers : null,
-      drmConfig: drmConfig,
-    );
+    final config = VideoPlayerConfig(url: stream.link, headers: headers.isNotEmpty ? headers : null, drmConfig: drmConfig);
     controller.initialize(config);
   }
 

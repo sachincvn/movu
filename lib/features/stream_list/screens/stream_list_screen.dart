@@ -16,19 +16,7 @@ class StreamListScreen extends StatelessWidget {
           return ListTile(
             title: Text(stream.name),
             onTap: () {
-              // Use custom page route for better performance
-              Navigator.push(
-                context,
-                PageRouteBuilder(
-                  pageBuilder: (context, animation, secondaryAnimation) => VideoPlayerScreen(stream: stream),
-                  transitionDuration: const Duration(milliseconds: 300),
-                  reverseTransitionDuration: const Duration(milliseconds: 200),
-                  transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                    // Fade transition for smoother navigation
-                    return FadeTransition(opacity: animation, child: child);
-                  },
-                ),
-              );
+              Navigator.push(context, MaterialPageRoute(builder: (context) => VideoPlayerScreen(stream: stream)));
             },
           );
         },
