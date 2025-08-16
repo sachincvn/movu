@@ -37,9 +37,14 @@ class DrmManager {
                     .build(mediaDrmCallback)
             }
             "clearkey" -> {
-                if (licenseKeys.isNullOrEmpty()) return null
-                val clearKeyLicenseUri = createClearKeyLicenseUri(licenseKeys)
-                val localMediaDrmCallback = LocalMediaDrmCallback(clearKeyLicenseUri.toByteArray())
+                // Handle both licenseKeys list and single drmLicenseUrl for ClearKey
+                val keys = when {
+                    !licenseKeys.isNullOrEmpty() -> licenseKeys
+                    !drmLicenseUrl.isNullOrEmpty() -> listOf(drmLicenseUrl)
+                    else -> return null
+                }
+                val clearKeyLicenseJson = createClearKeyLicenseUri(keys)
+                val localMediaDrmCallback = LocalMediaDrmCallback(clearKeyLicenseJson.toByteArray(Charsets.UTF_8))
                 DefaultDrmSessionManager.Builder()
                     .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
                     .build(localMediaDrmCallback)
@@ -49,34 +54,48 @@ class DrmManager {
     }
 
     private fun createClearKeyLicenseUri(licenseKeys: List<String>): String {
-        val keysList = mutableListOf<ByteArray>()
-        for (key in licenseKeys) {
+        return try {
+            val key = licenseKeys.first()
             val keyParts = key.split(":")
             if (keyParts.size == 2) {
-                // Convert hex strings to byte arrays for ClearKey
-                val keyId = hexStringToByteArray(keyParts[0])
-                val keyValue = hexStringToByteArray(keyParts[1])
-                keysList.add(keyId)
-                keysList.add(keyValue)
+                val keyId = keyParts[0]
+                val keyValue = keyParts[1]
+
+                android.util.Log.d("DrmManager", "Processing ClearKey: $keyId -> $keyValue")
+
+                // Convert hex strings to byte arrays
+                val keyIdBytes = hexStringToByteArray(keyId)
+                val keyValueBytes = hexStringToByteArray(keyValue)
+
+                // Create base64url encoded strings (no padding)
+                val keyIdBase64 = Base64.encodeToString(keyIdBytes, Base64.NO_WRAP or Base64.URL_SAFE).replace("=", "")
+                val keyValueBase64 = Base64.encodeToString(keyValueBytes, Base64.NO_WRAP or Base64.URL_SAFE).replace("=", "")
+
+                // Create the ClearKey JSON format
+                val jsonObject = JSONObject()
+                val keysArray = JSONArray()
+                val keyObject = JSONObject()
+
+                keyObject.put("kty", "oct")
+                keyObject.put("k", keyValueBase64)
+                keyObject.put("kid", keyIdBase64)
+                keysArray.put(keyObject)
+
+                jsonObject.put("keys", keysArray)
+                jsonObject.put("type", "temporary")
+
+                val jsonData = jsonObject.toString()
+                android.util.Log.d("DrmManager", "ClearKey JSON: $jsonData")
+
+                jsonData
+            } else {
+                android.util.Log.e("DrmManager", "Invalid ClearKey format: $key")
+                ""
             }
+        } catch (e: Exception) {
+            android.util.Log.e("DrmManager", "Error creating ClearKey license", e)
+            ""
         }
-
-        val jsonObject = JSONObject()
-        val keysArray = JSONArray()
-        for (i in keysList.indices step 2) {
-            val keyId = Base64.encodeToString(keysList[i], Base64.NO_WRAP or Base64.URL_SAFE)
-            val keyValue = Base64.encodeToString(keysList[i + 1], Base64.NO_WRAP or Base64.URL_SAFE)
-            val keyObject = JSONObject()
-            keyObject.put("kty", "oct")
-            keyObject.put("k", keyValue)
-            keyObject.put("kid", keyId)
-            keysArray.put(keyObject)
-        }
-        jsonObject.put("keys", keysArray)
-
-        val jsonData = jsonObject.toString()
-        val base64Data = Base64.encodeToString(Util.getUtf8Bytes(jsonData), Base64.NO_WRAP)
-        return "data:application/json;base64,$base64Data"
     }
 
     private fun hexStringToByteArray(s: String): ByteArray {

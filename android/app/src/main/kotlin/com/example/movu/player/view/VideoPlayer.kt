@@ -1,6 +1,7 @@
 package com.example.movu.player.view
 
 import android.content.Context
+import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.view.SurfaceHolder
@@ -39,7 +40,9 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
 
         // Configure player view for DRM content with secure surface
         playerView.setUseController(false)
-        playerView.setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+
+        // Set black background for the player view
+        playerView.setBackgroundColor(Color.BLACK)
 
         // Enable secure rendering for DRM content
         configureSecureSurface()
@@ -119,7 +122,13 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
                     httpDataSourceFactory.setDefaultRequestProperties(headers)
                 }
 
+                android.util.Log.d("VideoPlayer", "Initializing with URL: $url")
+                android.util.Log.d("VideoPlayer", "DRM Scheme: $drmScheme")
+                android.util.Log.d("VideoPlayer", "DRM License URL: $drmLicenseUrl")
+                android.util.Log.d("VideoPlayer", "License Keys: $licenseKeys")
+
                 val drmSessionManager = drmManager.buildDrmSessionManager(context, drmScheme, drmLicenseUrl, httpDataSourceFactory, licenseKeys)
+                android.util.Log.d("VideoPlayer", "DRM Session Manager created: ${drmSessionManager != null}")
 
                 val mediaItem = MediaItem.Builder()
                     .setUri(url)
