@@ -15,7 +15,10 @@ class VideoPlayer extends StatefulWidget {
   State<VideoPlayer> createState() => _VideoPlayerState();
 }
 
-class _VideoPlayerState extends State<VideoPlayer> {
+class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
@@ -38,14 +41,26 @@ class _VideoPlayerState extends State<VideoPlayer> {
   }
 
   void _onStateChanged() {
-    setState(() {
-      // The UI will rebuild whenever the controller notifies its listeners.
-    });
+    if (mounted) {
+      setState(() {
+        // The UI will rebuild whenever the controller notifies its listeners.
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final nativeController = widget.controller as NativeVideoPlayerController;
+
+    // Hide the video player if it's not playing to prevent surface lag
+    if (!widget.controller.isPlaying && !widget.controller.isBuffering) {
+      return Container(
+        color: Colors.black,
+        child: const Center(child: Icon(Icons.play_circle_outline, color: Colors.white, size: 64)),
+      );
+    }
+
     return Stack(
       alignment: Alignment.center,
       children: [

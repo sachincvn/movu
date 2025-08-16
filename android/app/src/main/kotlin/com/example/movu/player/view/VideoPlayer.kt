@@ -30,25 +30,39 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
     private val methodChannel: MethodChannel
     private val handler = Handler(Looper.getMainLooper())
     private val drmManager = DrmManager()
+    private val startTime = System.currentTimeMillis()
+    private var isDisposed = false
 
     init {
+        // Initialize ExoPlayer with optimized settings
         exoPlayer = ExoPlayer.Builder(context)
             .setTrackSelector(trackSelectorManager.trackSelector)
+            .setLoadControl(
+                androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(
+                        15000,  // Min buffer
+                        50000,  // Max buffer
+                        1500,   // Buffer for playback
+                        5000    // Buffer for playback after rebuffer
+                    )
+                    .build()
+            )
             .build()
+
+        // Configure PlayerView for optimal performance
         playerView.player = exoPlayer
-        playerView.useController = false // Disable default controls
-
-        // Configure player view for DRM content with secure surface
+        playerView.useController = false
         playerView.setUseController(false)
-
-        // Set black background for the player view
         playerView.setBackgroundColor(Color.BLACK)
+        playerView.setShutterBackgroundColor(Color.BLACK)
 
         // Enable secure rendering for DRM content
         configureSecureSurface()
 
         methodChannel = MethodChannel(messenger, "movu/video_player_" + id)
         methodChannel.setMethodCallHandler(this)
+
+        android.util.Log.d("VideoPlayer", "VideoPlayer created in ${System.currentTimeMillis() - startTime}ms")
 
         exoPlayer.addListener(object : Player.Listener {
             override fun onPlayerError(error: PlaybackException) {
@@ -86,8 +100,32 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
     override fun getView() = playerView
 
     override fun dispose() {
-        exoPlayer.release()
-        handler.removeCallbacksAndMessages(null)
+        if (isDisposed) {
+            android.util.Log.d("VideoPlayer", "Already disposed, skipping")
+            return
+        }
+
+        try {
+            android.util.Log.d("VideoPlayer", "=== STARTING IMMEDIATE DISPOSAL ===")
+            isDisposed = true
+
+            // Immediately stop playback to clear surface
+            exoPlayer.stop()
+            exoPlayer.clearMediaItems()
+
+            // Clear the surface immediately to prevent lag
+            playerView.player = null
+
+            // Clean up handler immediately
+            handler.removeCallbacksAndMessages(null)
+
+            // Release ExoPlayer immediately on main thread
+            exoPlayer.release()
+            android.util.Log.d("VideoPlayer", "=== DISPOSAL COMPLETED IMMEDIATELY ===")
+
+        } catch (e: Exception) {
+            android.util.Log.e("VideoPlayer", "Error during immediate disposal", e)
+        }
     }
 
     private fun configureSecureSurface() {
@@ -108,6 +146,12 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
     }
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
+        if (isDisposed && call.method != "dispose") {
+            android.util.Log.w("VideoPlayer", "Ignoring method call '${call.method}' - player is disposed")
+            result.error("DISPOSED", "VideoPlayer is already disposed", null)
+            return
+        }
+
         when (call.method) {
             "initialize" -> {
                 val args = call.arguments as Map<*, *>
@@ -117,30 +161,40 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
                 val drmLicenseUrl = args["drm_license_url"] as? String
                 val licenseKeys = args["drm_license_keys"] as? List<String>
 
-                val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-                if (headers != null) {
-                    httpDataSourceFactory.setDefaultRequestProperties(headers)
-                }
+                // Run initialization on background thread to avoid blocking UI
+                Thread {
+                    try {
+                        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+                        if (headers != null) {
+                            httpDataSourceFactory.setDefaultRequestProperties(headers)
+                        }
 
-                android.util.Log.d("VideoPlayer", "Initializing with URL: $url")
-                android.util.Log.d("VideoPlayer", "DRM Scheme: $drmScheme")
-                android.util.Log.d("VideoPlayer", "DRM License URL: $drmLicenseUrl")
-                android.util.Log.d("VideoPlayer", "License Keys: $licenseKeys")
+                        android.util.Log.d("VideoPlayer", "Initializing with URL: $url")
 
-                val drmSessionManager = drmManager.buildDrmSessionManager(context, drmScheme, drmLicenseUrl, httpDataSourceFactory, licenseKeys)
-                android.util.Log.d("VideoPlayer", "DRM Session Manager created: ${drmSessionManager != null}")
+                        val drmSessionManager = drmManager.buildDrmSessionManager(context, drmScheme, drmLicenseUrl, httpDataSourceFactory, licenseKeys)
+                        android.util.Log.d("VideoPlayer", "DRM Session Manager created: ${drmSessionManager != null}")
 
-                val mediaItem = MediaItem.Builder()
-                    .setUri(url)
-                    .build()
+                        val mediaItem = MediaItem.Builder()
+                            .setUri(url)
+                            .build()
 
-                val mediaSourceFactory = MediaSourceFactoryProvider.getFactory(url)
-                val mediaSource = mediaSourceFactory.createMediaSource(context, mediaItem, httpDataSourceFactory, drmSessionManager)
+                        val mediaSourceFactory = MediaSourceFactoryProvider.getFactory(url)
+                        val mediaSource = mediaSourceFactory.createMediaSource(context, mediaItem, httpDataSourceFactory, drmSessionManager)
 
-                exoPlayer.setMediaSource(mediaSource)
-                exoPlayer.prepare()
-                exoPlayer.play()
-                result.success(null)
+                        // Switch back to main thread for ExoPlayer operations
+                        handler.post {
+                            exoPlayer.setMediaSource(mediaSource)
+                            exoPlayer.prepare()
+                            exoPlayer.play()
+                            result.success(null)
+                        }
+                    } catch (e: Exception) {
+                        android.util.Log.e("VideoPlayer", "Error during initialization", e)
+                        handler.post {
+                            result.error("INITIALIZATION_ERROR", e.message, null)
+                        }
+                    }
+                }.start()
             }
             "play" -> {
                 exoPlayer.play()
@@ -148,6 +202,15 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
             }
             "pause" -> {
                 exoPlayer.pause()
+                result.success(null)
+            }
+            "stop" -> {
+                // Immediate stop for navigation
+                android.util.Log.d("VideoPlayer", "=== STOP CALLED - IMMEDIATE CLEANUP ===")
+                exoPlayer.stop()
+                exoPlayer.clearMediaItems()
+                playerView.player = null
+                android.util.Log.d("VideoPlayer", "=== STOP COMPLETED ===")
                 result.success(null)
             }
             "seekTo" -> {

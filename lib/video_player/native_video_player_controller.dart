@@ -44,9 +44,7 @@ class NativeVideoPlayerController extends VideoPlayerController {
         _errorMessage = error['errorMessage'] as String?;
         break;
       case 'onTracks':
-        _videoTracks = (call.arguments as List)
-            .map((track) => Map<String, dynamic>.from(track as Map))
-            .toList();
+        _videoTracks = (call.arguments as List).map((track) => Map<String, dynamic>.from(track as Map)).toList();
         break;
       default:
         // Handle unknown method
@@ -61,17 +59,16 @@ class NativeVideoPlayerController extends VideoPlayerController {
   @override
   Future<void> pause() => _channel.invokeMethod('pause');
 
-  @override
-  Future<void> seekTo(Duration position) =>
-      _channel.invokeMethod('seekTo', {'position': position.inMilliseconds});
+  Future<void> stop() => _channel.invokeMethod('stop');
 
   @override
-  Future<void> setSpeed(double speed) =>
-      _channel.invokeMethod('setPlaybackSpeed', {'speed': speed});
+  Future<void> seekTo(Duration position) => _channel.invokeMethod('seekTo', {'position': position.inMilliseconds});
 
   @override
-  Future<void> setTrack(int trackIndex) =>
-      _channel.invokeMethod('setTrack', {'trackIndex': trackIndex});
+  Future<void> setSpeed(double speed) => _channel.invokeMethod('setPlaybackSpeed', {'speed': speed});
+
+  @override
+  Future<void> setTrack(int trackIndex) => _channel.invokeMethod('setTrack', {'trackIndex': trackIndex});
 
   @override
   Duration get duration => _duration;
