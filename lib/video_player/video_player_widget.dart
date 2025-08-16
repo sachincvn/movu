@@ -52,7 +52,6 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final nativeController = widget.controller as NativeVideoPlayerController;
-    print('🎮 VideoPlayer widget building - isPlaying: ${widget.controller.isPlaying}, isBuffering: ${widget.controller.isBuffering}');
     return Stack(
       alignment: Alignment.center,
       children: [

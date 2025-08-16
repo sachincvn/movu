@@ -31,25 +31,19 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
 
   Future<void> _initializeVideoPlayer() async {
     try {
-      print('🎬 Starting video player initialization...');
       // Add a small delay to allow the UI to settle and navigation animation to complete
       await Future.delayed(const Duration(milliseconds: 150));
 
       _videoPlayerService = VideoPlayerService();
-      print('🎬 VideoPlayerService created');
-
       _videoPlayerService!.initializeController(widget.stream);
-      print('🎬 Controller initialized for stream: ${widget.stream.name}');
 
       if (mounted) {
         setState(() {
           _isInitialized = true;
           _isLoading = false;
         });
-        print('🎬 Video player initialization completed successfully');
       }
     } catch (e) {
-      print('❌ Video player initialization failed: $e');
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -63,7 +57,6 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
   @override
   void deactivate() {
     // Just pause the video when deactivating, don't dispose yet
-    print('🔄 Deactivate called - pausing video player');
     if (_videoPlayerService != null && _isInitialized) {
       _videoPlayerService!.controller.pause();
     }
@@ -113,10 +106,7 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
   }
 
   Widget _buildBody() {
-    print('🏗️ Building body - isLoading: $_isLoading, isInitialized: $_isInitialized, service: ${_videoPlayerService != null}');
-
     if (_isLoading) {
-      print('🏗️ Showing loading screen');
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -130,13 +120,11 @@ class _VideoPlayerScreenState extends State<VideoPlayerScreen> with WidgetsBindi
     }
 
     if (!_isInitialized || _videoPlayerService == null) {
-      print('🏗️ Showing failed to initialize screen');
       return const Center(
         child: Text('Failed to initialize player', style: TextStyle(color: Colors.white)),
       );
     }
 
-    print('🏗️ Showing VideoPlayer widget');
     return VideoPlayer(controller: _videoPlayerService!.controller);
   }
 }
