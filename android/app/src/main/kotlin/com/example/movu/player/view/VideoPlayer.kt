@@ -3,6 +3,8 @@ package com.example.movu.player.view
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
+import android.view.SurfaceHolder
+import android.view.SurfaceView
 import androidx.annotation.OptIn
 import androidx.media3.common.MediaItem
 import androidx.media3.common.PlaybackException
@@ -34,9 +36,14 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
             .build()
         playerView.player = exoPlayer
         playerView.useController = false // Disable default controls
-        // Configure player view for DRM content
+
+        // Configure player view for DRM content with secure surface
         playerView.setUseController(false)
         playerView.setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+
+        // Enable secure rendering for DRM content
+        configureSecureSurface()
+
         methodChannel = MethodChannel(messenger, "movu/video_player_" + id)
         methodChannel.setMethodCallHandler(this)
 
@@ -80,22 +87,39 @@ class VideoPlayer(private val context: Context, id: Int, creationParams: Map<Str
         handler.removeCallbacksAndMessages(null)
     }
 
+    private fun configureSecureSurface() {
+        try {
+            // Configure surface view for secure content
+            val videoSurfaceView = playerView.videoSurfaceView
+            if (videoSurfaceView is SurfaceView) {
+                // Enable secure surface for DRM content
+                videoSurfaceView.setSecure(true)
+                android.util.Log.d("VideoPlayer", "Secure surface configured for DRM content")
+            } else {
+                android.util.Log.w("VideoPlayer", "VideoSurfaceView is not a SurfaceView, secure surface not configured")
+            }
+        } catch (e: Exception) {
+            // Log error but don't crash - some devices may not support secure surfaces
+            android.util.Log.w("VideoPlayer", "Failed to configure secure surface: ${e.message}")
+        }
+    }
+
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "initialize" -> {
                 val args = call.arguments as Map<*, *>
                 val url = args["url"] as String
                 val headers = args["headers"] as? Map<String, String>
-                val drmScheme = args["drmScheme"] as? String
-                val drmLicenseUrl = args["drmLicenseUrl"] as? String
-                val licenseKeys = args["licenseKeys"] as? List<String>
+                val drmScheme = args["drm_scheme"] as? String
+                val drmLicenseUrl = args["drm_license_url"] as? String
+                val licenseKeys = args["drm_license_keys"] as? List<String>
 
                 val httpDataSourceFactory = DefaultHttpDataSource.Factory()
                 if (headers != null) {
                     httpDataSourceFactory.setDefaultRequestProperties(headers)
                 }
 
-                val drmSessionManager = drmManager.buildDrmSessionManager(context, drmScheme, drmLicenseUrl, httpDataSourceFactory)
+                val drmSessionManager = drmManager.buildDrmSessionManager(context, drmScheme, drmLicenseUrl, httpDataSourceFactory, licenseKeys)
 
                 val mediaItem = MediaItem.Builder()
                     .setUri(url)

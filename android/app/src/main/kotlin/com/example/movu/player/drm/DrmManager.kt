@@ -13,6 +13,7 @@ import androidx.media3.exoplayer.drm.DefaultDrmSessionManager
 import androidx.media3.exoplayer.drm.DrmSessionManager
 import androidx.media3.exoplayer.drm.FrameworkMediaDrm
 import androidx.media3.exoplayer.drm.HttpMediaDrmCallback
+import androidx.media3.exoplayer.drm.LocalMediaDrmCallback
 import android.content.Context
 
 class DrmManager {
@@ -20,24 +21,30 @@ class DrmManager {
         context: Context,
         drmScheme: String?,
         drmLicenseUrl: String?,
-        httpDataSourceFactory: HttpDataSource.Factory
+        httpDataSourceFactory: HttpDataSource.Factory,
+        licenseKeys: List<String>? = null
     ): DrmSessionManager? {
-        if (drmScheme == null || drmLicenseUrl == null) {
+        if (drmScheme == null) {
             return null
         }
 
-        val drmUuid = when (drmScheme) {
-            "widevine" -> C.WIDEVINE_UUID
+        return when (drmScheme.lowercase()) {
+            "widevine" -> {
+                if (drmLicenseUrl == null) return null
+                val mediaDrmCallback = HttpMediaDrmCallback(drmLicenseUrl, httpDataSourceFactory)
+                DefaultDrmSessionManager.Builder()
+                    .setUuidAndExoMediaDrmProvider(C.WIDEVINE_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                    .build(mediaDrmCallback)
+            }
+            "clearkey" -> {
+                if (licenseKeys.isNullOrEmpty()) return null
+                val clearKeyLicenseUri = createClearKeyLicenseUri(licenseKeys)
+                val localMediaDrmCallback = LocalMediaDrmCallback(clearKeyLicenseUri.toByteArray())
+                DefaultDrmSessionManager.Builder()
+                    .setUuidAndExoMediaDrmProvider(C.CLEARKEY_UUID, FrameworkMediaDrm.DEFAULT_PROVIDER)
+                    .build(localMediaDrmCallback)
+            }
             else -> null
-        }
-
-        return if (drmUuid != null) {
-            val mediaDrmCallback = HttpMediaDrmCallback(drmLicenseUrl, httpDataSourceFactory)
-            DefaultDrmSessionManager.Builder()
-                .setUuidAndExoMediaDrmProvider(drmUuid, FrameworkMediaDrm.DEFAULT_PROVIDER)
-                .build(mediaDrmCallback)
-        } else {
-            null
         }
     }
 

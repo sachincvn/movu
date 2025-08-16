@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'native_video_player_controller.dart';
 import 'video_player_controller.dart';
 
@@ -46,30 +49,34 @@ class _VideoPlayerState extends State<VideoPlayer> {
     return Stack(
       alignment: Alignment.center,
       children: [
-        AndroidView(
+        PlatformViewLink(
           viewType: 'movu/video_player',
-          layoutDirection: TextDirection.ltr,
-          creationParams: nativeController.config.toMap(),
-          creationParamsCodec: const StandardMessageCodec(),
-          onPlatformViewCreated: nativeController.onPlatformViewCreated,
+          surfaceFactory: (context, controller) {
+            return AndroidViewSurface(controller: controller as AndroidViewController, gestureRecognizers: const <Factory<OneSequenceGestureRecognizer>>{}, hitTestBehavior: PlatformViewHitTestBehavior.opaque);
+          },
+          onCreatePlatformView: (params) {
+            return PlatformViewsService.initSurfaceAndroidView(
+                id: params.id,
+                viewType: 'movu/video_player',
+                layoutDirection: TextDirection.ltr,
+                creationParams: nativeController.config.toMap(),
+                creationParamsCodec: const StandardMessageCodec(),
+                onFocus: () {
+                  params.onFocusChanged(true);
+                },
+              )
+              ..addOnPlatformViewCreatedListener(params.onPlatformViewCreated)
+              ..addOnPlatformViewCreatedListener(nativeController.onPlatformViewCreated);
+          },
         ),
-        if (widget.controller.isBuffering)
-          const CircularProgressIndicator(),
+        if (widget.controller.isBuffering) const CircularProgressIndicator(),
         if (widget.controller.errorMessage != null)
           Container(
-            color: Colors.black.withOpacity(0.7),
+            color: Colors.black.withValues(alpha: 0.7),
             padding: const EdgeInsets.all(16),
-            child: Text(
-              widget.controller.errorMessage!,
-              style: const TextStyle(color: Colors.white),
-            ),
+            child: Text(widget.controller.errorMessage!, style: const TextStyle(color: Colors.white)),
           ),
-        Positioned(
-          bottom: 0,
-          left: 0,
-          right: 0,
-          child: _buildControls(),
-        ),
+        Positioned(bottom: 0, left: 0, right: 0, child: _buildControls()),
       ],
     );
   }
@@ -77,7 +84,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
   Widget _buildControls() {
     return Container(
       padding: const EdgeInsets.all(8.0),
-      color: Colors.black.withOpacity(0.5),
+      color: Colors.black.withValues(alpha: 0.5),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -101,10 +108,8 @@ class _VideoPlayerState extends State<VideoPlayer> {
             children: [
               Expanded(
                 child: IconButton(
-                  icon: Icon(widget.controller.isPlaying ? Icons.pause : Icons.play_arrow,color: Colors.white),
-                  onPressed: () => widget.controller.isPlaying
-                      ? widget.controller.pause()
-                      : widget.controller.play(),
+                  icon: Icon(widget.controller.isPlaying ? Icons.pause : Icons.play_arrow, color: Colors.white),
+                  onPressed: () => widget.controller.isPlaying ? widget.controller.pause() : widget.controller.play(),
                 ),
               ),
               Expanded(
@@ -114,10 +119,7 @@ class _VideoPlayerState extends State<VideoPlayer> {
                     return widget.controller.videoTracks.asMap().entries.map((entry) {
                       final index = entry.key;
                       final track = entry.value;
-                      return PopupMenuItem<int>(
-                        value: index,
-                        child: Text('${track['height']}p'),
-                      );
+                      return PopupMenuItem<int>(value: index, child: Text('${track['height']}p'));
                     }).toList();
                   },
                   child: const Icon(Icons.settings, color: Colors.white),
@@ -128,13 +130,10 @@ class _VideoPlayerState extends State<VideoPlayer> {
                   onSelected: (double speed) => widget.controller.setSpeed(speed),
                   itemBuilder: (BuildContext context) {
                     return [0.5, 1.0, 1.5, 2.0].map((speed) {
-                      return PopupMenuItem<double>(
-                        value: speed,
-                        child: Text('${speed}x'),
-                      );
+                      return PopupMenuItem<double>(value: speed, child: Text('${speed}x'));
                     }).toList();
                   },
-                  child: const Icon(Icons.speed,color: Colors.white),
+                  child: const Icon(Icons.speed, color: Colors.white),
                 ),
               ),
             ],
