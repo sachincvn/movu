@@ -3,7 +3,7 @@ import 'video_player_config.dart';
 import 'video_player_controller.dart';
 
 class NativeVideoPlayerController extends VideoPlayerController {
-  late final MethodChannel _channel;
+  MethodChannel? _channel;
   final String _viewType = 'movu/video_player';
 
   Duration _duration = Duration.zero;
@@ -21,8 +21,8 @@ class NativeVideoPlayerController extends VideoPlayerController {
 
   void onPlatformViewCreated(int id) {
     _channel = MethodChannel('movu/video_player_$id');
-    _channel.setMethodCallHandler(_onMethodCall);
-    _channel.invokeMethod('initialize', _config.toMap());
+    _channel!.setMethodCallHandler(_onMethodCall);
+    _channel!.invokeMethod('initialize', _config.toMap());
   }
 
   Future<void> _onMethodCall(MethodCall call) async {
@@ -54,21 +54,21 @@ class NativeVideoPlayerController extends VideoPlayerController {
   }
 
   @override
-  Future<void> play() => _channel.invokeMethod('play');
+  Future<void> play() => _channel?.invokeMethod('play') ?? Future.value();
 
   @override
-  Future<void> pause() => _channel.invokeMethod('pause');
+  Future<void> pause() => _channel?.invokeMethod('pause') ?? Future.value();
 
-  Future<void> stop() => _channel.invokeMethod('stop');
-
-  @override
-  Future<void> seekTo(Duration position) => _channel.invokeMethod('seekTo', {'position': position.inMilliseconds});
+  Future<void> stop() => _channel?.invokeMethod('stop') ?? Future.value();
 
   @override
-  Future<void> setSpeed(double speed) => _channel.invokeMethod('setPlaybackSpeed', {'speed': speed});
+  Future<void> seekTo(Duration position) => _channel?.invokeMethod('seekTo', {'position': position.inMilliseconds}) ?? Future.value();
 
   @override
-  Future<void> setTrack(int trackIndex) => _channel.invokeMethod('setTrack', {'trackIndex': trackIndex});
+  Future<void> setSpeed(double speed) => _channel?.invokeMethod('setPlaybackSpeed', {'speed': speed}) ?? Future.value();
+
+  @override
+  Future<void> setTrack(int trackIndex) => _channel?.invokeMethod('setTrack', {'trackIndex': trackIndex}) ?? Future.value();
 
   @override
   Duration get duration => _duration;

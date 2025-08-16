@@ -52,15 +52,7 @@ class _VideoPlayerState extends State<VideoPlayer> with AutomaticKeepAliveClient
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final nativeController = widget.controller as NativeVideoPlayerController;
-
-    // Hide the video player if it's not playing to prevent surface lag
-    if (!widget.controller.isPlaying && !widget.controller.isBuffering) {
-      return Container(
-        color: Colors.black,
-        child: const Center(child: Icon(Icons.play_circle_outline, color: Colors.white, size: 64)),
-      );
-    }
-
+    print('🎮 VideoPlayer widget building - isPlaying: ${widget.controller.isPlaying}, isBuffering: ${widget.controller.isBuffering}');
     return Stack(
       alignment: Alignment.center,
       children: [
